@@ -2,8 +2,6 @@
  * Доктор Дент - Mini App JavaScript
  */
 
-// API Base URL (для прототипа используем относительный путь)
-const API_BASE = '/api';
 
 // Состояние приложения
 const appState = {
