@@ -6,7 +6,7 @@
 // URL вашего Flask API сервера
 // Для локальной разработки: 'http://localhost:5000/api'
 // Для продакшена: 'https://your-server.com/api'
-const API_BASE = 'http://localhost:5000/api';
+const API_BASE = 'http://87.251.78.146:1234/api';
 
 // Информация о клинике (для работы без API)
 const CLINIC_INFO = {
