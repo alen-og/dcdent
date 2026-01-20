@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Выбор врача - Доктор Дент</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <link rel="stylesheet" href="../css/styles.css">
+</head>
+<body>
+    <header class="header">
+        <div style="display: flex; align-items: center; gap: 12px;">
+            <button onclick="history.back()" style="background: none; border: none; font-size: 24px; cursor: pointer;">←</button>
+            <span class="header-title">Запись на приём</span>
+        </div>
+    </header>
+
+    <main>
+        <div class="booking-steps">
+            <div class="step completed"></div>
+            <div class="step active"></div>
+            <div class="step"></div>
+            <div class="step"></div>
+        </div>
+
+        <div class="section">
+            <div class="section-title">Шаг 2: Выберите врача</div>
+        </div>
+
+        <div class="card" id="selected-service" style="background: var(--bg-secondary);"></div>
+
+        <div class="branch-selector" id="branch-tabs">
+            <div class="branch-chip active" onclick="filterByBranch(null)">Все филиалы</div>
+        </div>
+
+        <div id="doctors-list" style="padding-bottom: 80px;"></div>
+    </main>
+
+    <script src="../js/config.js"></script>
+    <script src="../js/telegram.js"></script>
+    <script src="../js/app.js"></script>
+    <script>
+        let currentBranch = null;
+
+        async function filterByBranch(branchId) {
+            currentBranch = branchId;
+            document.querySelectorAll('.branch-chip').forEach(chip => {
+                chip.classList.toggle('active', chip.dataset.branch == branchId || (!branchId && !chip.dataset.branch));
+            });
+            loadDoctorsStep(branchId);
+            hapticFeedback('light');
+        }
+
+        async function loadDoctorsStep(branchId) {
+            const container = document.getElementById('doctors-list');
+            container.innerHTML = '<div class="loader"><div class="spinner"></div></div>';
+
+            let endpoint = '/doctors';
+            if (branchId) endpoint += `?branch=${branchId}`;
+
+            const doctors = await apiGet(endpoint);
+
+            if (!doctors || doctors.length === 0) {
+                container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">👨‍⚕️</div><p>Врачи не найдены</p></div>';
+                return;
+            }
+
+            container.innerHTML = doctors.map(d => `
+                <div class="doctor-card" onclick="selectDoctorStep(${d.id}, '${d.name.replace(/'/g, "\\'")}')" style="cursor: pointer;">
+                    <img src="${d.photo_url}" alt="${d.name}" class="doctor-photo"
+                         onerror="this.src='https://via.placeholder.com/80x80?text=👨‍⚕️'">
+                    <div class="doctor-info">
+                        <div class="doctor-name">
+                            ${d.name}
+                            ${d.is_promo ? '<span class="badge badge-promo">Акция</span>' : ''}
+                        </div>
+                        <div class="doctor-specialty">${d.specialty}</div>
+                        <div class="doctor-meta">
+                            <span class="doctor-rating">⭐ ${d.rating}</span>
+                            <span>Стаж ${d.experience_years} лет</span>
+                        </div>
+                        <div style="margin-top: 8px; font-weight: 600; color: var(--primary);">
+                            Консультация: ${d.consultation_price === 0 ? 'Бесплатно' : d.consultation_price.toLocaleString('ru-RU') + '₽'}
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function selectDoctorStep(id, name) {
+            const booking = JSON.parse(localStorage.getItem('booking') || '{}');
+            booking.doctor = { id, name };
+            localStorage.setItem('booking', JSON.stringify(booking));
+            hapticFeedback('medium');
+            window.location.href = 'step3.html';
+        }
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            const booking = JSON.parse(localStorage.getItem('booking') || '{}');
+            const serviceContainer = document.getElementById('selected-service');
+
+            if (booking.service) {
+                serviceContainer.innerHTML = `
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div>
+                            <div style="font-size: 12px; color: var(--text-muted);">Выбранная услуга</div>
+                            <div style="font-weight: 600;">${booking.service.name}</div>
+                        </div>
+                        <a href="step1.html" style="color: var(--primary); text-decoration: none;">Изменить</a>
+                    </div>
+                `;
+            } else {
+                window.location.href = 'step1.html';
+                return;
+            }
+
+            const branches = await apiGet('/branches');
+            const tabsContainer = document.getElementById('branch-tabs');
+
+            if (branches && tabsContainer) {
+                tabsContainer.innerHTML = `
+                    <div class="branch-chip active" onclick="filterByBranch(null)">Все</div>
+                ` + branches.map(b => `
+                    <div class="branch-chip" data-branch="${b.id}"
+                         onclick="filterByBranch(${b.id})">${b.short_name}</div>
+                `).join('');
+            }
+
+            loadDoctorsStep();
+            showBackButton(() => history.back());
+        });
+    </script>
+</body>
+</html>

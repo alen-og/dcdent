@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Выбор услуги - Доктор Дент</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <link rel="stylesheet" href="../css/styles.css">
+</head>
+<body>
+    <header class="header">
+        <div style="display: flex; align-items: center; gap: 12px;">
+            <button onclick="history.back()" style="background: none; border: none; font-size: 24px; cursor: pointer;">←</button>
+            <span class="header-title">Запись на приём</span>
+        </div>
+    </header>
+
+    <main>
+        <div class="booking-steps">
+            <div class="step active"></div>
+            <div class="step"></div>
+            <div class="step"></div>
+            <div class="step"></div>
+        </div>
+
+        <div class="section">
+            <div class="section-title">Шаг 1: Выберите услугу</div>
+        </div>
+
+        <div class="branch-selector" id="category-tabs"></div>
+        <div id="services-list" style="padding-bottom: 80px;"></div>
+    </main>
+
+    <script src="../js/config.js"></script>
+    <script src="../js/telegram.js"></script>
+    <script src="../js/app.js"></script>
+    <script>
+        let currentCategory = null;
+
+        async function selectCategory(categoryId) {
+            currentCategory = categoryId;
+            document.querySelectorAll('.branch-chip').forEach(chip => {
+                chip.classList.toggle('active', chip.dataset.category == categoryId || (!categoryId && !chip.dataset.category));
+            });
+            loadServicesStep(categoryId);
+            hapticFeedback('light');
+        }
+
+        async function loadServicesStep(categoryId) {
+            const container = document.getElementById('services-list');
+            container.innerHTML = '<div class="loader"><div class="spinner"></div></div>';
+
+            let endpoint = '/services';
+            if (categoryId) endpoint += `?category=${categoryId}`;
+
+            const services = await apiGet(endpoint);
+
+            if (!services || services.length === 0) {
+                container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">🦷</div><p>Услуги не найдены</p></div>';
+                return;
+            }
+
+            container.innerHTML = services.map(s => `
+                <div class="service-card" onclick="selectServiceStep(${s.id}, '${s.name.replace(/'/g, "\\'")}', ${s.price || s.price_from})">
+                    <div>
+                        <div class="service-name">
+                            ${s.name}
+                            ${s.is_popular ? '<span class="badge badge-popular">Популярное</span>' : ''}
+                            ${s.is_promo ? '<span class="badge badge-promo">Акция</span>' : ''}
+                        </div>
+                        <div class="service-duration">${s.duration_min} мин</div>
+                    </div>
+                    <div class="service-price ${s.is_promo ? 'promo' : ''}">${s.price_display}</div>
+                </div>
+            `).join('');
+        }
+
+        function selectServiceStep(id, name, price) {
+            const booking = { service: { id, name, price } };
+            localStorage.setItem('booking', JSON.stringify(booking));
+            hapticFeedback('medium');
+            window.location.href = 'step2.html';
+        }
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            const categories = await apiGet('/services/categories');
+            const tabsContainer = document.getElementById('category-tabs');
+
+            if (categories && tabsContainer) {
+                tabsContainer.innerHTML = `
+                    <div class="branch-chip active" onclick="selectCategory(null)">Все</div>
+                ` + categories.map(c => `
+                    <div class="branch-chip" data-category="${c.id}"
+                         onclick="selectCategory(${c.id})">${c.icon} ${c.name}</div>
+                `).join('');
+            }
+
+            loadServicesStep();
+            showBackButton(() => history.back());
+        });
+    </script>
+</body>
+</html>

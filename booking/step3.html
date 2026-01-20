@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Выбор времени - Доктор Дент</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <link rel="stylesheet" href="../css/styles.css">
+</head>
+<body>
+    <header class="header">
+        <div style="display: flex; align-items: center; gap: 12px;">
+            <button onclick="history.back()" style="background: none; border: none; font-size: 24px; cursor: pointer;">←</button>
+            <span class="header-title">Запись на приём</span>
+        </div>
+    </header>
+
+    <main>
+        <div class="booking-steps">
+            <div class="step completed"></div>
+            <div class="step completed"></div>
+            <div class="step active"></div>
+            <div class="step"></div>
+        </div>
+
+        <div class="section">
+            <div class="section-title">Шаг 3: Выберите дату и время</div>
+        </div>
+
+        <div class="card" id="selected-info" style="background: var(--bg-secondary);"></div>
+
+        <div id="calendar-container"></div>
+
+        <div class="section">
+            <div class="section-title">Доступное время</div>
+        </div>
+        <div class="time-slots" id="time-slots">
+            <div class="empty-state">Выберите дату</div>
+        </div>
+    </main>
+
+    <div class="bottom-bar">
+        <button class="btn btn-primary btn-block btn-lg" id="continue-btn" disabled onclick="goToConfirm()">
+            Продолжить
+        </button>
+    </div>
+
+    <script src="../js/config.js"></script>
+    <script src="../js/telegram.js"></script>
+    <script src="../js/app.js"></script>
+    <script>
+        let bookingData = {};
+
+        function generateCalendarStep(selectedDate = null) {
+            const container = document.getElementById('calendar-container');
+            const today = new Date();
+            const currentMonth = today.getMonth();
+            const currentYear = today.getFullYear();
+
+            const dayNames = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
+            const monthNames = ['Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь',
+                                'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'];
+
+            const firstDay = new Date(currentYear, currentMonth, 1);
+            const lastDay = new Date(currentYear, currentMonth + 1, 0);
+            const startDay = (firstDay.getDay() + 6) % 7;
+
+            let html = `
+                <div class="calendar">
+                    <div class="calendar-header">
+                        <span>${monthNames[currentMonth]} ${currentYear}</span>
+                    </div>
+                    <div class="calendar-days">
+            `;
+
+            dayNames.forEach(day => {
+                html += `<div class="calendar-day-name">${day}</div>`;
+            });
+
+            for (let i = 0; i < startDay; i++) {
+                html += `<div class="calendar-day disabled"></div>`;
+            }
+
+            for (let day = 1; day <= lastDay.getDate(); day++) {
+                const date = new Date(currentYear, currentMonth, day);
+                const dateStr = date.toISOString().split('T')[0];
+                const isPast = date < new Date(today.toDateString());
+                const isToday = date.toDateString() === today.toDateString();
+                const isSelected = dateStr === selectedDate;
+
+                let classes = 'calendar-day';
+                if (isPast) classes += ' disabled';
+                if (isToday) classes += ' today';
+                if (isSelected) classes += ' selected';
+
+                html += `<div class="${classes}" data-date="${dateStr}"
+                             ${!isPast ? `onclick="selectDateStep('${dateStr}')"` : ''}>${day}</div>`;
+            }
+
+            html += `</div></div>`;
+            container.innerHTML = html;
+        }
+
+        async function selectDateStep(dateStr) {
+            bookingData.date = dateStr;
+            bookingData.time = null;
+            localStorage.setItem('booking', JSON.stringify(bookingData));
+
+            document.querySelectorAll('.calendar-day').forEach(day => {
+                day.classList.toggle('selected', day.dataset.date === dateStr);
+            });
+
+            hapticFeedback('light');
+            await loadTimeSlotsStep();
+            updateContinueButton();
+        }
+
+        async function loadTimeSlotsStep() {
+            const container = document.getElementById('time-slots');
+
+            if (!bookingData.doctor?.id || !bookingData.date) {
+                container.innerHTML = '<div class="empty-state">Выберите дату</div>';
+                return;
+            }
+
+            container.innerHTML = '<div class="loader"><div class="spinner"></div></div>';
+
+            const data = await apiGet(`/slots?doctor=${bookingData.doctor.id}&date=${bookingData.date}`);
+
+            if (!data || !data.slots || data.slots.length === 0) {
+                container.innerHTML = '<div class="empty-state">Нет свободных слотов на эту дату</div>';
+                return;
+            }
+
+            if (data.branch_id) {
+                bookingData.branch = { id: data.branch_id };
+                localStorage.setItem('booking', JSON.stringify(bookingData));
+            }
+
+            container.innerHTML = data.slots.map(slot => `
+                <div class="time-slot" onclick="selectTimeStep('${slot}')">${slot}</div>
+            `).join('');
+        }
+
+        function selectTimeStep(time) {
+            bookingData.time = time;
+            localStorage.setItem('booking', JSON.stringify(bookingData));
+
+            document.querySelectorAll('.time-slot').forEach(slot => {
+                slot.classList.toggle('selected', slot.textContent === time);
+            });
+
+            hapticFeedback('medium');
+            updateContinueButton();
+        }
+
+        function updateContinueButton() {
+            const btn = document.getElementById('continue-btn');
+            btn.disabled = !bookingData.date || !bookingData.time;
+        }
+
+        function goToConfirm() {
+            if (bookingData.date && bookingData.time) {
+                window.location.href = 'step4.html';
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            bookingData = JSON.parse(localStorage.getItem('booking') || '{}');
+            const infoContainer = document.getElementById('selected-info');
+
+            if (!bookingData.service || !bookingData.doctor) {
+                window.location.href = 'step1.html';
+                return;
+            }
+
+            infoContainer.innerHTML = `
+                <div style="margin-bottom: 12px;">
+                    <div style="font-size: 12px; color: var(--text-muted);">Услуга</div>
+                    <div style="font-weight: 500;">${bookingData.service.name}</div>
+                </div>
+                <div>
+                    <div style="font-size: 12px; color: var(--text-muted);">Врач</div>
+                    <div style="font-weight: 500;">${bookingData.doctor.name}</div>
+                </div>
+            `;
+
+            generateCalendarStep(bookingData.date);
+
+            if (bookingData.date) {
+                await loadTimeSlotsStep();
+            }
+
+            showBackButton(() => history.back());
+            updateContinueButton();
+        });
+    </script>
+</body>
+</html>

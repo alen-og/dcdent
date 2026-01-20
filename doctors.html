@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Наши врачи - Доктор Дент</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+    <header class="header">
+        <div class="header-logo">
+            <img src="https://static.tildacdn.com/tild3363-3137-4861-b163-386131626365/DrDent_1.png" alt="Доктор Дент">
+            <span class="header-title">Доктор Дент</span>
+        </div>
+    </header>
+
+    <main>
+        <nav class="nav-tabs">
+            <button class="nav-tab" onclick="location.href='index.html'">Главная</button>
+            <button class="nav-tab" onclick="location.href='services.html'">Услуги</button>
+            <button class="nav-tab active" onclick="location.href='doctors.html'">Врачи</button>
+            <button class="nav-tab" onclick="location.href='appointments.html'">Записи</button>
+        </nav>
+
+        <div class="branch-selector" id="branch-tabs">
+            <div class="branch-chip active" onclick="filterByBranch(null)">Все</div>
+        </div>
+
+        <div id="doctors-list"></div>
+    </main>
+
+    <div class="fab-container">
+        <button class="fab" onclick="toggleContactMenu()">📞</button>
+        <div class="fab-menu" id="contactMenu">
+            <a href="tel:+78312660003" class="fab-item">📞 Позвонить<small>+7 (831) 266-00-03</small></a>
+            <a href="https://wa.me/78312660003" class="fab-item" target="_blank">💬 WhatsApp</a>
+        </div>
+    </div>
+
+    <script src="js/config.js"></script>
+    <script src="js/telegram.js"></script>
+    <script src="js/app.js"></script>
+    <script>
+        let currentBranch = null;
+
+        async function filterByBranch(branchId) {
+            currentBranch = branchId;
+            document.querySelectorAll('.branch-chip').forEach(chip => {
+                chip.classList.toggle('active', chip.dataset.branch == branchId || (!branchId && !chip.dataset.branch));
+            });
+            loadDoctorsPage(branchId);
+            hapticFeedback('light');
+        }
+
+        async function loadDoctorsPage(branchId) {
+            const container = document.getElementById('doctors-list');
+            container.innerHTML = '<div class="loader"><div class="spinner"></div></div>';
+
+            let endpoint = '/doctors';
+            if (branchId) endpoint += `?branch=${branchId}`;
+
+            const doctors = await apiGet(endpoint);
+
+            if (!doctors || doctors.length === 0) {
+                container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">👨‍⚕️</div><p>Врачи не найдены</p></div>';
+                return;
+            }
+
+            container.innerHTML = doctors.map(d => `
+                <a href="doctor.html?id=${d.id}" class="doctor-card">
+                    <img src="${d.photo_url}" alt="${d.name}" class="doctor-photo"
+                         onerror="this.src='https://via.placeholder.com/80x80?text=👨‍⚕️'">
+                    <div class="doctor-info">
+                        <div class="doctor-name">
+                            ${d.name}
+                            ${d.is_promo ? '<span class="badge badge-promo">Акция</span>' : ''}
+                        </div>
+                        <div class="doctor-specialty">${d.specialty}</div>
+                        <div class="doctor-meta">
+                            <span class="doctor-rating">⭐ ${d.rating}</span>
+                            <span>Стаж ${d.experience_years} лет</span>
+                        </div>
+                    </div>
+                </a>
+            `).join('');
+        }
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            const branches = await apiGet('/branches');
+            const tabsContainer = document.getElementById('branch-tabs');
+
+            if (branches && tabsContainer) {
+                tabsContainer.innerHTML = `
+                    <div class="branch-chip active" onclick="filterByBranch(null)">Все</div>
+                ` + branches.map(b => `
+                    <div class="branch-chip" data-branch="${b.id}"
+                         onclick="filterByBranch(${b.id})">${b.short_name}</div>
+                `).join('');
+            }
+
+            loadDoctorsPage();
+        });
+    </script>
+</body>
+</html>

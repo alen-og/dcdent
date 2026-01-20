@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Профиль врача - Доктор Дент</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+    <header class="header">
+        <div style="display: flex; align-items: center; gap: 12px;">
+            <button onclick="history.back()" style="background: none; border: none; font-size: 24px; cursor: pointer;">←</button>
+            <span class="header-title">Профиль врача</span>
+        </div>
+    </header>
+
+    <main>
+        <div id="doctor-profile">
+            <div class="loader"><div class="spinner"></div></div>
+        </div>
+    </main>
+
+    <div class="bottom-bar">
+        <button class="btn btn-primary btn-block btn-lg" id="book-btn" disabled>
+            Записаться к врачу
+        </button>
+    </div>
+
+    <script src="js/config.js"></script>
+    <script src="js/telegram.js"></script>
+    <script src="js/app.js"></script>
+    <script>
+        const doctorId = new URLSearchParams(window.location.search).get('id');
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            const container = document.getElementById('doctor-profile');
+
+            if (!doctorId) {
+                container.innerHTML = '<div class="empty-state">Врач не найден</div>';
+                return;
+            }
+
+            const doctor = await apiGet(`/doctors/${doctorId}`);
+
+            if (!doctor) {
+                container.innerHTML = '<div class="empty-state">Врач не найден</div>';
+                return;
+            }
+
+            container.innerHTML = `
+                <div style="text-align: center; padding: 24px;">
+                    <img src="${doctor.photo_url}" alt="${doctor.name}"
+                         style="width: 120px; height: 120px; border-radius: 50%; object-fit: cover; margin-bottom: 16px;"
+                         onerror="this.src='https://via.placeholder.com/120x120?text=👨‍⚕️'">
+                    <h2 style="margin-bottom: 4px;">${doctor.name}</h2>
+                    <p style="color: var(--text-secondary);">${doctor.position || doctor.specialty}</p>
+                    ${doctor.is_promo ? `<span class="badge badge-promo" style="margin-top: 8px;">${doctor.promo_text}</span>` : ''}
+                </div>
+
+                <div style="display: flex; justify-content: center; gap: 32px; padding: 16px; background: var(--bg-secondary);">
+                    <div style="text-align: center;">
+                        <div style="font-size: 24px; font-weight: 700; color: var(--warning);">⭐ ${doctor.rating}</div>
+                        <div style="font-size: 12px; color: var(--text-muted);">${doctor.reviews_count} отзывов</div>
+                    </div>
+                    <div style="text-align: center;">
+                        <div style="font-size: 24px; font-weight: 700;">${doctor.experience_years}</div>
+                        <div style="font-size: 12px; color: var(--text-muted);">лет опыта</div>
+                    </div>
+                    <div style="text-align: center;">
+                        <div style="font-size: 24px; font-weight: 700;">${doctor.consultation_price === 0 ? 'Бесплатно' : doctor.consultation_price.toLocaleString('ru-RU') + '₽'}</div>
+                        <div style="font-size: 12px; color: var(--text-muted);">консультация</div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h3 style="margin-bottom: 12px;">Специализация</h3>
+                    <p>${doctor.specialty}</p>
+                    ${doctor.category ? `<p style="color: var(--text-secondary); margin-top: 4px;">${doctor.category}</p>` : ''}
+                </div>
+
+                ${doctor.quote ? `
+                <div class="card" style="background: var(--bg-secondary); border-left: 4px solid var(--primary);">
+                    <p style="font-style: italic;">"${doctor.quote}"</p>
+                </div>
+                ` : ''}
+
+                ${doctor.branches && doctor.branches.length > 0 ? `
+                <div class="card">
+                    <h3 style="margin-bottom: 12px;">Ведёт приём</h3>
+                    ${doctor.branches.map(b => `
+                        <div style="display: flex; align-items: center; gap: 12px; padding: 8px 0;">
+                            <span>📍</span>
+                            <div>
+                                <div style="font-weight: 500;">${b.short_name}</div>
+                                <div style="font-size: 13px; color: var(--text-secondary);">${b.address}</div>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+                ` : ''}
+            `;
+
+            const bookBtn = document.getElementById('book-btn');
+            bookBtn.disabled = false;
+            bookBtn.onclick = () => {
+                const booking = JSON.parse(localStorage.getItem('booking') || '{}');
+                booking.doctor = { id: doctor.id, name: doctor.name };
+                localStorage.setItem('booking', JSON.stringify(booking));
+                hapticFeedback('medium');
+                window.location.href = 'booking/step3.html';
+            };
+
+            showBackButton(() => history.back());
+        });
+    </script>
+</body>
+</html>

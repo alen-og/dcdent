@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Запись создана - Доктор Дент</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <link rel="stylesheet" href="../css/styles.css">
+    <style>
+        .confetti-piece {
+            position: fixed;
+            width: 10px;
+            height: 10px;
+            top: -10px;
+            animation: fall 3s linear forwards;
+        }
+
+        @keyframes fall {
+            to {
+                top: 100vh;
+                transform: rotate(720deg);
+            }
+        }
+    </style>
+</head>
+<body>
+    <main>
+        <div class="success-page">
+            <div id="confetti-container"></div>
+
+            <div class="success-icon" id="success-icon">✓</div>
+
+            <h1 class="success-title">Вы записаны!</h1>
+            <p class="success-message">Мы отправим вам напоминание за день до визита</p>
+
+            <div class="card" style="width: 100%; max-width: 400px; text-align: left;">
+                <div style="text-align: center; padding: 8px;">
+                    <p style="color: var(--text-secondary);">
+                        📞 Телефон клиники:<br>
+                        <a href="tel:+78312660003" style="color: var(--primary); font-weight: 600; font-size: 18px;">
+                            +7 (831) 266-00-03
+                        </a>
+                    </p>
+                </div>
+            </div>
+
+            <div style="width: 100%; max-width: 400px; margin-top: 24px;">
+                <a href="../index.html" class="btn btn-primary btn-block btn-lg">
+                    На главную
+                </a>
+                <a href="../appointments.html" class="btn btn-secondary btn-block" style="margin-top: 12px;">
+                    Мои записи
+                </a>
+            </div>
+        </div>
+    </main>
+
+    <script src="../js/config.js"></script>
+    <script src="../js/telegram.js"></script>
+    <script src="../js/app.js"></script>
+    <script>
+        function createConfetti() {
+            const container = document.getElementById('confetti-container');
+            const colors = ['#ff0000', '#00ff00', '#0000ff', '#ffff00', '#ff00ff', '#00ffff', '#ffa500', '#ff69b4'];
+
+            for (let i = 0; i < 50; i++) {
+                const piece = document.createElement('div');
+                piece.className = 'confetti-piece';
+                piece.style.left = Math.random() * 100 + 'vw';
+                piece.style.background = colors[Math.floor(Math.random() * colors.length)];
+                piece.style.animationDelay = Math.random() * 2 + 's';
+                piece.style.animationDuration = (2 + Math.random() * 2) + 's';
+                container.appendChild(piece);
+            }
+
+            setTimeout(() => container.innerHTML = '', 5000);
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            hapticFeedback('success');
+            createConfetti();
+            hideBackButton();
+            hideMainButton();
+        });
+    </script>
+</body>
+</html>
